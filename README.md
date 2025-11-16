@@ -1,47 +1,74 @@
 # Automotive-Revenue-and-Insights-Dashboard
-This is an end-to-end data analysis project covering data cleaning, transformation, modelling, and dashboard creation using power bi
-This project presents an interactive Automotive Revenue & Insights Dashboard built entirely in Power BI. The report analyzes total revenue, annual purchase trends, customer demographics, and brand performance across key automotive manufacturers.
+This project presents an Automotive Revenue & Customer Insights Dashboard developed using Power BI. The analysis focuses on vehicle purchases, customer demographics, and revenue trends across multiple automotive brands. Power BI was used not only for visualization but also for all data preparation and transformation.
 
-All data preparation—including data cleaning, transformation, modeling, and visualization—was completed inside Power BI using Power Query and DAX.
+The data cleaning process was performed in Power Query, where inconsistent formats, invalid values, and missing fields were corrected to ensure a reliable dataset. New time-based fields—Month and Year—were extracted from the main date column to enable deeper trend analysis and interactive filtering. Additionally, a new calculated column for Revenue was created by multiplying the unit price by the number of items purchased, providing a clear view of financial performance across categories.
 
-The dashboard delivers insights into yearly purchases, gender distribution, age group segmentation, monthly performance, and vehicle model preferences. It is designed to support decision-making across sales, marketing, and strategic planning teams.
+Using these prepared fields, the dashboard highlights total revenue, customer age groups, monthly purchase behavior, gender distribution, and model-level performance patterns. Interactive filters allow users to explore insights across different customer segments, years, and car brands.
 
+Overall, this dashboard offers a clean, well-structured, and insight-driven view of sales performance, built end-to-end within Power BI—from data cleaning to modeling and final reporting.
 
- Project Objectives
-	•	Analyze overall revenue and purchase trends
-	•	Compare performance across automotive brands
-	•	Understand customer demographics (age groups & gender)
-	•	Identify seasonal patterns in monthly purchases
-	•	Evaluate demand across different car models
-	•	Build a fully interactive dashboard for stakeholder use
+#POWER QUERY M CODE(Data cleaning + Month, Year + Revenue column)
 
+let
+    // Load source file
+    Source = Excel.Workbook(File.Contents("CarSalesData.xlsx"), null, true),
+    Sales_Sheet = Source{[Item="Sales", Kind="Sheet"]}[Data],
 
-## Tools & Techniques Used
+   // Promote first row to headers
+    PromotedHeaders = Table.PromoteHeaders(Sales_Sheet, [PromoteAllScalars=true]),
 
-  Power BI Desktop
-	•	Data cleaning & transformation (Power Query)
-	•	Data modeling (relationships, star schema concepts)
-	•	DAX calculations & measures
-	•	Interactive slicers & filters
-	•	Custom visualizations and layout design
+// Clean text fields: trim spaces and standardize
+    CleanText = Table.TransformColumns(
+        PromotedHeaders,
+        {
+            {"CustomerName", Text.Trim, type text},
+            {"Gender", Text.Proper, type text},
+            {"Brand", Text.Proper, type text},
+            {"Model", Text.Proper, type text}
+        }
+    ),
+    // Change data types
+    ChangeTypes = Table.TransformColumnTypes(
+        CleanText,
+        {
+            {"CustomerID", Int64.Type},
+            {"Age", Int64.Type},
+            {"Purchase Date", type date},
+            {"Price", type number},
+            {"Purchased", Int64.Type}
+        }
+    ),
 
-  Data Preparation Techniques
-	•	Handling missing values
-	•	Standardizing data formats
-	•	Creating calculated columns & measures
-	•	Building date hierarchy for trend analysis
+   // Remove rows with missing key values
+    RemovedNulls = Table.SelectRows(
+        ChangeTypes,
+        each [Purchase Date] <> null and [Price] <> null and [Purchased] <> null
+    ),
+    // Create Revenue Column (Price × Purchased)
+    AddRevenue = Table.AddColumn(
+        RemovedNulls,
+        "Revenue",
+        each [Price] * [Purchased],
+        type number
+    ),
 
-  Key Insights
-	•	The highest purchase volume comes from mid-career customers.
-	•	Revenue is heavily influenced by specific high-performing car models.
-	•	Gender distribution shows balanced engagement across categories.
-	•	Seasonal patterns indicate peak activity in specific months.
-	•	Brand performance varies, with BMW and Tesla showing strong demand.
+   // Extract Year
+    AddYear = Table.AddColumn(
+        AddRevenue,
+        "Year",
+        each Date.Year([Purchase Date]),
+        Int64.Type
+    ),
 
+// Extract Month Name
+    AddMonth = Table.AddColumn(
+        AddYear,
+        "Month",
+        each Date.MonthName([Purchase Date]),
+        type text
+    ),
 
- What I Learned
-	•	End-to-end BI workflow using Power BI
-	•	Designing professional dashboards with UI/UX principles
-	•	Creating interactive filters & slicers
-	•	DAX for advanced calculations
-	•	Data modeling for more accurate insights
+  // Final sorted data
+    SortedRows = Table.Sort(AddMonth, {{"Purchase Date", Order.Ascending}})
+in
+    SortedRows
